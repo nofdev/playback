@@ -1,18 +1,97 @@
-from fabric.api import *
-from fabric.contrib import files
-from fabric.tasks import Task
-from fabric.network import disconnect_all
-from fabric.colors import red
-import os
 import argparse
+import os
 import sys
-from playback.cli import cli_description
+
+from fabric.api import *
+from fabric.colors import red
+from fabric.contrib import files
+from fabric.network import disconnect_all
+from fabric.tasks import Task
+
+from playback import __version__, common
+from playback.templates.linuxbridge_agent_ini_for_agent import \
+    conf_linuxbridge_agent_ini
 from playback.templates.neutron_conf_for_agent import conf_neutron_conf
-from playback.templates.linuxbridge_agent_ini_for_agent import conf_linuxbridge_agent_ini
-from playback import __version__
-from playback import common
+
 
 class NeutronAgent(common.Common):
+    """
+    Deploy neutron agent
+
+    :param user(str): the user for remote server to login
+    :param hosts(list): this is a second param
+    :param key_filename(str): the ssh private key to used, default None
+    :param password(str): the password for remote server
+    :param parallel(bool): paralleler execute on remote server, default True
+    :returns: None
+    :examples:
+
+        .. code-block:: python
+
+            # create neutron agent instances
+            agent1 = NeutronAgent(
+                user='ubuntu',
+                hosts=['compute1']
+            )
+            agent2 = NeutronAgent(
+                user='ubuntu',
+                hosts=['compute2']
+            )
+            agent3 = NeutronAgent(
+                user='ubuntu',
+                hosts=['compute3']
+            )
+            agent4 = NeutronAgent(
+                user='ubuntu',
+                hosts=['compute4']
+            )
+
+            # install neutron agent
+            agent1.install(
+                rabbit_hosts='controller1,controller2',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                neutron_pass='changeme',
+                public_interface='eth1',
+                local_ip='192.168.1.11',
+                memcached_servers='controller1:11211,controller2:11211',
+            )
+            agent2.install(
+                rabbit_hosts='controller1,controller2',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                neutron_pass='changeme',
+                public_interface='eth1',
+                local_ip='192.168.1.12',
+                memcached_servers='controller1:11211,controller2:11211',
+            )
+            agent3.install(
+                rabbit_hosts='controller1,controller2',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                neutron_pass='changeme',
+                public_interface='eth1',
+                local_ip='192.168.1.13',
+                memcached_servers='controller1:11211,controller2:11211',
+            )
+            agent4.install(
+                rabbit_hosts='controller1,controller2',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                neutron_pass='changeme',
+                public_interface='eth1',
+                local_ip='192.168.1.14',
+                memcached_servers='controller1:11211,controller2:11211',
+            )
+    """
 
     def _install(self, rabbit_hosts, rabbit_user, rabbit_pass, auth_uri, auth_url, neutron_pass, public_interface, local_ip, memcached_servers):
         print red(env.host_string + ' | Install the components')
@@ -30,11 +109,11 @@ class NeutronAgent(common.Common):
                               use_sudo=True,
                               backup=True,
                               context={'rabbit_hosts': rabbit_hosts,
-                                       'rabbit_user': rabbit_user, 
+                                       'rabbit_user': rabbit_user,
                                        'rabbit_password': rabbit_pass,
                                        'auth_uri': auth_uri,
                                        'auth_url': auth_url,
-                                       'neutron_pass': neutron_pass, 
+                                       'neutron_pass': neutron_pass,
                                        'memcached_servers': memcached_servers})
         os.remove('tmp_neutron_conf_' + env.host_string)
 
@@ -54,114 +133,19 @@ class NeutronAgent(common.Common):
         sudo('service nova-compute restart')
         sudo('service neutron-linuxbridge-agent restart')
 
-def install_subparser(s):
-    install_parser = s.add_parser('install', help='install neutron agent')
-    install_parser.add_argument('--rabbit-hosts',
-                                help='rabbit hosts e.g. controller1,controller2',
-                                action='store',
-                                default=None,
-                                dest='rabbit_hosts')
-    install_parser.add_argument('--rabbit-user',
-                                help='the user for rabbit, default openstack',
-                                action='store',
-                                default='openstack',
-                                dest='rabbit_user')
-    install_parser.add_argument('--rabbit-pass',
-                                help='the password for rabbit openstack user',
-                                action='store',
-                                default=None,
-                                dest='rabbit_pass')
-    install_parser.add_argument('--auth-uri',
-                                help='keystone internal endpoint e.g. http://CONTROLLER_VIP:5000',
-                                action='store',
-                                default=None,
-                                dest='auth_uri')
-    install_parser.add_argument('--auth-url',
-                                help='keystone admin endpoint e.g. http://CONTROLLER_VIP:35357',
-                                action='store',
-                                default=None,
-                                dest='auth_url')
-    install_parser.add_argument('--neutron-pass',
-                                help='the password for neutron user',
-                                action='store',
-                                default=None,
-                                dest='neutron_pass')
-    install_parser.add_argument('--public-interface',
-                                help='public interface e.g. eth1',
-                                action='store',
-                                default=None,
-                                dest='public_interface')
-    install_parser.add_argument('--local-ip',
-                                help=' underlying physical network interface that handles overlay networks(uses the management interface IP)',
-                                action='store',
-                                default=None,
-                                dest='local_ip')
-    install_parser.add_argument('--memcached-servers',
-                                help='memcached servers e.g. CONTROLLER1:11211,CONTROLLER2:11211',
-                                action='store',
-                                default=None,
-                                dest='memcached_servers')
-    return install_parser
+    def install(self, *args, **kwargs):
+        """
+        Install neutron agent
 
-def make_target(args):
-    try:
-        target = NeutronAgent(user=args.user, hosts=args.hosts.split(','), key_filename=args.key_filename, password=args.password)
-    except AttributeError:
-        sys.stderr.write(red('No hosts found. Please using --hosts param.'))
-        sys.exit(1)
-    return target
-    
-def install(args):
-    target = make_target(args)
-    execute(target._install, 
-            args.rabbit_hosts,
-            args.rabbit_user,  
-            args.rabbit_pass, 
-            args.auth_uri, 
-            args.auth_url, 
-            args.neutron_pass, 
-            args.public_interface, 
-            args.local_ip, 
-            args.memcached_servers)
-            
-def parser():
-    p = argparse.ArgumentParser(prog='neutron-agent-deploy', description=cli_description+'this command used for provision Neutron Agent')
-    p.add_argument('-v', '--version', action='version', version=__version__)
-    p.add_argument('--user', 
-                    help='the target user', 
-                    action='store', 
-                    default='ubuntu', 
-                    dest='user')
-    p.add_argument('--hosts', 
-                    help='the target address', 
-                    action='store', 
-                    dest='hosts')
-    p.add_argument('-i', '--key-filename', help='referencing file paths to SSH key files to try when connecting', action='store', dest='key_filename', default=None)
-    p.add_argument('--password', help='the password used by the SSH layer when connecting to remote hosts', action='store', dest='password', default=None)
-
-    s = p.add_subparsers(dest='subparser_name')
-    
-    def install_f(args):
-        install(args)
-    install_parser = install_subparser(s)
-    install_parser.set_defaults(func=install_f)
-    
-    return p
-
-def main():
-    p = parser()
-    args = p.parse_args()
-    if not hasattr(args, 'func'):
-        p.print_help()
-    else:
-        # XXX on Python 3.3 we get 'args has no func' rather than short help.
-        try:
-            args.func(args)
-            disconnect_all()
-            return 0
-        except Exception as e:
-            sys.stderr.write(e.message)
-    return 1
-
-if __name__ == '__main__':
-    main()
+        :param rabbit_hosts: RabbitMQ HA cluster host:port pairs. (list value) e.g. `CONTROLLER1,CONTROLLER2`
+        :param rabbit_user: The RabbitMQ userid. (string value) e.g. `openstack`
+        :param rabbit_pass: The RabbitMQ password. (string value)
+        :param auth_uri: Complete public Identity API endpoint. (string value) e.g. `http://CONTROLLER_VIP:5000`
+        :param auth_url: keystone admin endpoint e.g. `http://CONTROLLER_VIP:35357`
+        :param neutron_pass: the password of `neutron` user
+        :param public_interface: public interface e.g. `eth1`
+        :param local_ip: underlying physical network interface that handles overlay networks(uses the management interface IP)
+        :param memcached_servers: Optionally specify a list of memcached server(s) to use for caching. (list value) e.g. `CONTROLLER1:11211,CONTROLLER2:11211`
+        :returns: None
+        """
+        return execute(self._install, *args, **kwargs)

@@ -1,174 +1,128 @@
+import argparse
+import os
+import sys
+
 from fabric.api import *
+from fabric.colors import red
 from fabric.contrib import files
 from fabric.network import disconnect_all
-from fabric.colors import red
-import os
-import argparse
-import sys
-from playback import __version__
-from playback import common
+
+from playback import __version__, common
 from playback.templates.manila_conf_for_share import conf_manila_conf
 
-class ManilaShare(common.Common):
 
-    def _install_manila(self, connection, auth_uri, auth_url, manila_pass, my_ip, memcached_servers, rabbit_hosts, rabbit_user, rabbit_pass, neutron_endpoint, neutron_pass, nova_pass, cinder_pass):
-        sys.stdout.write(red(env.host_string + ' | Install manila-share python-pymysql and neutron-plugin-linuxbridge-agent\n'))
+class ManilaShare(common.Common):
+    """
+    Install manila share service
+
+    :param user(str): the user for remote server to login
+    :param hosts(list): this is a second param
+    :param key_filename(str): the ssh private key to used, default None
+    :param password(str): the password for remote server
+    :param parallel(bool): paralleler execute on remote server, default True
+    :returns: None
+    :examples:
+
+        .. code-block:: python
+
+            # create manila share instances
+            manila_share1 = ManilaShare(user='ubuntu', hosts=['controller1'])
+            manila_share2 = ManilaShare(user='ubuntu', hosts=['controller2'])
+
+            # install manila share service the same as manila service nodes
+            manila_share1.install_manila_share(
+                connection='mysql+pymysql://manila:changeme@192.168.1.1/manila',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                manila_pass='changeme',
+                my_ip='192.168.1.2',
+                memcached_servers='192.168.1.2:11211,192.168.1.3:11211',
+                rabbit_hosts='192.168.1.2,192.168.1.3',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                neutron_endpoint='http://192.168.1.1:9696',
+                neutron_pass='changeme',
+                nova_pass='changeme',
+                cinder_pass='changeme'
+            )
+            manila_share2.install_manila_share(
+                connection='mysql+pymysql://manila:changeme@192.168.1.1/manila',
+                auth_uri='http://192.168.1.1:5000',
+                auth_url='http://192.168.1.1:35357',
+                manila_pass='changeme',
+                my_ip='192.168.1.3',
+                memcached_servers='192.168.1.2:11211,192.168.1.3:11211',
+                rabbit_hosts='192.168.1.2,192.168.1.3',
+                rabbit_user='openstack',
+                rabbit_pass='changeme',
+                neutron_endpoint='http://192.168.1.1:9696',
+                neutron_pass='changeme',
+                nova_pass='changeme',
+                cinder_pass='changeme'
+            )
+
+            # create the service image for manila
+            http://docs.openstack.org/mitaka/install-guide-ubuntu/launch-instance-manila.html
+
+            # create shares with share servers management support
+            http://docs.openstack.org/mitaka/install-guide-ubuntu/launch-instance-manila-dhss-true-option2.html
+    """
+
+    def _install_manila_share(self, connection, auth_uri, auth_url, manila_pass, my_ip, memcached_servers, rabbit_hosts, rabbit_user, rabbit_pass, neutron_endpoint, neutron_pass, nova_pass, cinder_pass):
+        sys.stdout.write(red(
+            env.host_string + ' | Install manila-share python-pymysql and neutron-plugin-linuxbridge-agent\n'))
         sudo('apt update')
         sudo('apt install manila-api manila-share python-pymysql neutron-plugin-linuxbridge-agent -y')
 
-        sys.stdout.write(red(env.host_string + ' | Update /etc/manila/manila.conf\n'))
-        with open('tmp_manila_conf_' + env.host_string ,'w') as f:
+        sys.stdout.write(
+            red(env.host_string + ' | Update /etc/manila/manila.conf\n'))
+        with open('tmp_manila_conf_' + env.host_string, 'w') as f:
             f.write(conf_manila_conf)
         files.upload_template(filename='tmp_manila_conf_' + env.host_string,
-                                destination='/etc/manila/manila.conf',
-                                use_jinja=True,
-                                use_sudo=True,
-                                backup=True,
-                                context={
-                                    'connection': connection,
-                                    'rabbit_hosts': rabbit_hosts,
-                                    'rabbit_userid': rabbit_user,
-                                    'rabbit_password': rabbit_pass,
-                                    'memcached_servers': memcached_servers,
-                                    'auth_uri': auth_uri,
-                                    'auth_url': auth_url,
-                                    'manila_pass': manila_pass,
-                                    'my_ip': my_ip,
-                                    'neutron_endpoint': neutron_endpoint,
-                                    'neutron_pass': neutron_pass,
-                                    'nova_pass': nova_pass,
-                                    'cinder_pass': cinder_pass
-                                })
+                              destination='/etc/manila/manila.conf',
+                              use_jinja=True,
+                              use_sudo=True,
+                              backup=True,
+                              context={
+                                  'connection': connection,
+                                  'rabbit_hosts': rabbit_hosts,
+                                  'rabbit_userid': rabbit_user,
+                                  'rabbit_password': rabbit_pass,
+                                  'memcached_servers': memcached_servers,
+                                  'auth_uri': auth_uri,
+                                  'auth_url': auth_url,
+                                  'manila_pass': manila_pass,
+                                  'my_ip': my_ip,
+                                  'neutron_endpoint': neutron_endpoint,
+                                  'neutron_pass': neutron_pass,
+                                  'nova_pass': nova_pass,
+                                  'cinder_pass': cinder_pass
+                              })
         os.remove('tmp_manila_conf_' + env.host_string)
-        
-        sys.stdout.write(red(env.host_string + ' | Restart the Share File Systems service including its dependencies\n'))
+
+        sys.stdout.write(red(
+            env.host_string + ' | Restart the Share File Systems service including its dependencies\n'))
         finalize = sudo('systemctl restart manila-share')
         if finalize.failed or self._release == 'trusty':
             sudo('service manila-share restart')
 
+    def install_manila_share(self, *args, **kwargs):
+        """
+        Install manila share service
 
-
-def install_subparser(s):
-    install_parser = s.add_parser('install',help='install manila share node')
-    install_parser.add_argument('--connection',
-                                help='mysql manila database connection string e.g. mysql+pymysql://manila:MANILA_PASS@CONTROLLER_VIP/manila',
-                                action='store',
-                                default=None,
-                                dest='connection')
-    install_parser.add_argument('--auth-uri',
-                                help='keystone internal endpoint e.g. http://CONTROLLER_VIP:5000',
-                                action='store',
-                                default=None,
-                                dest='auth_uri')
-    install_parser.add_argument('--auth-url',
-                                help='keystone admin endpoint e.g. http://CONTROLLER_VIP:35357',
-                                action='store',
-                                default=None,
-                                dest='auth_url')
-    install_parser.add_argument('--manila-pass',
-                                help='passowrd for manila user',
-                                action='store',
-                                default=None,
-                                dest='manila_pass')
-    install_parser.add_argument('--my-ip',
-                                help='the host management ip',
-                                action='store',
-                                default=None,
-                                dest='my_ip')
-    install_parser.add_argument('--memcached-servers',
-                                help='memcached servers e.g. CONTROLLER1:11211,CONTROLLER2:11211',
-                                action='store',
-                                default=None,
-                                dest='memcached_servers')
-    install_parser.add_argument('--rabbit-hosts',
-                                help='rabbit hosts e.g. CONTROLLER1,CONTROLLER2',
-                                action='store',
-                                default=None,
-                                dest='rabbit_hosts')
-    install_parser.add_argument('--rabbit-user',
-                                help='the user for rabbit openstack user, default openstack',
-                                action='store',
-                                default='openstack',
-                                dest='rabbit_user')
-    install_parser.add_argument('--rabbit-pass',
-                                help='the password for rabbit openstack user',
-                                action='store',
-                                default=None,
-                                dest='rabbit_pass')
-    install_parser.add_argument('--neutron-endpoint',
-                                help='neutron endpoint e.g. http://CONTROLLER_VIP:9696',
-                                action='store',
-                                default=None,
-                                dest='neutron_endpoint')
-    install_parser.add_argument('--neutron-pass',
-                                help='the password for neutron user',
-                                action='store',
-                                default=None,
-                                dest='neutron_pass')
-    install_parser.add_argument('--nova-pass',
-                                help='passowrd for nova user',
-                                action='store',
-                                default=None,
-                                dest='nova_pass')
-    install_parser.add_argument('--cinder-pass',
-                                help='passowrd for cinder user',
-                                action='store',
-                                default=None,
-                                dest='cinder_pass')
-                            
-    return install_parser
-
-def make_target(args):
-    try:
-        target = ManilaShare(user=args.user, hosts=args.hosts.split(','), key_filename=args.key_filename, password=args.password)
-    except AttributeError:
-        sys.stderr.write(red('No hosts found. Please using --hosts param.'))
-        sys.exit(1)
-    return target
-
-def install(args):
-    target = make_target(args)
-    execute(target._install_manila,
-            args.connection,
-            args.auth_uri,
-            args.auth_url,
-            args.manila_pass,
-            args.my_ip,
-            args.memcached_servers,
-            args.rabbit_hosts,
-            args.rabbit_user,
-            args.rabbit_pass,
-            args.neutron_endpoint,
-            args.neutron_pass,
-            args.nova_pass,
-            args.cinder_pass)
-
-def parser():
-    des = 'this command used for provision manila share node.'
-    p, s = common.parser(des)
-
-    def install_f(args):
-        install(args)
-    install_parser = install_subparser(s)
-    install_parser.set_defaults(func=install_f)
-
-    return p
-
-
-def main():
-    p = parser()
-    args = p.parse_args()
-    if not hasattr(args, 'func'):
-        p.print_help()
-    else:
-        # XXX on Python 3.3 we get 'args has no func' rather than short help.
-        try:
-            args.func(args)
-            disconnect_all()
-            return 0
-        except Exception as e:
-            sys.stderr.write(e.message)
-    return 1
-
-if __name__ == '__main__':
-    main()
+        :param connection: The SQLAlchemy connection string to use to connect to the database. (string value) e.g. `mysql+pymysql://manila:MANILA_PASS@CONTROLLER_VIP/manila`
+        :param auth_uri: Complete public Identity API endpoint. (string value) e.g. `http://CONTROLLER_VIP:5000`
+        :param auth_url: Authentication URL (unknown value) e.g. `http://CONTROLLER_VIP:35357`
+        :param manila_pass: passowrd of `manila` user
+        :param my_ip: IP address of this host. (string value)
+        :param memcached_servers: Memcached servers or None for in process cache. (list value) e.g. `CONTROLLER1:11211,CONTROLLER2:11211`
+        :param rabbit_hosts: RabbitMQ HA cluster host:port pairs. (list value) e.g. `CONTROLLER1,CONTROLLER2`
+        :param rabbit_user: The RabbitMQ userid. (string value) e.g. openstack
+        :param rabbit_pass: The RabbitMQ password. (string value)
+        :param neutron_endpoint: neutron endpoint e.g. `http://CONTROLLER_VIP:9696`
+        :param neutron_pass: the password of `neutron` user
+        :param nova_pass: the passowrd of `nova` user
+        :param cinder_pass: the passowrd of `cinder` user
+        :returns: None
+        """
+        return execute(self._install_manila_share, *args, **kwargs)

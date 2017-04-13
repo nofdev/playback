@@ -1,5 +1,20 @@
 # Release Notes
 
+* v0.3.9 (Ris)
+  Improved documents
+  
+* v0.3.8 (Ris)
+  Fix builder file upload error
+
+* v0.3.7 (Ris)
+  Fix module error
+
+* v0.3.6 (Ris)
+  Move command line to FastForward
+
+* v0.3.5 (Ris)
+  Add API for Fastforward
+
 * v0.3.4 (Ris)
   * Support xenial
   * Support systemd
@@ -52,7 +67,6 @@
   * Support provisions OpenStack Juno
   * Ansible as the backend
   * All configurations definded in one config file
-
 
 
 

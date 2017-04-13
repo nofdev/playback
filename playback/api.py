@@ -1,4 +1,5 @@
-from fabric.tasks import execute
+from playback.cmd import Cmd
+from playback.prepare_host import PrepareHost
 from playback.keystone import Keystone
 from playback.cinder import Cinder
 from playback.glance import Glance
@@ -15,3 +16,5 @@ from playback.nova_compute import NovaCompute
 from playback.rabbitmq import RabbitMq
 from playback.swift import Swift
 from playback.swift_storage import SwiftStorage
+from playback.manila import Manila
+from playback.manila_share import ManilaShare

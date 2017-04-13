@@ -1,26 +1,74 @@
-from fabric.api import *
-from fabric.tasks import Task
-from fabric.colors import red
-from playback import common
 import sys
 
+from fabric.api import *
+from fabric.colors import red
+from fabric.tasks import Task
+
+from playback import common
+
+
 class MysqlManage(common.Common):
-    """Manage Galera Cluster for MySQL"""
+    """
+    Manage Galera Cluster for MySQL
+
+    :param user(str): the user for remote server to login
+    :param hosts(list): this is a second param
+    :param key_filename(str): the ssh private key to used, default None
+    :param password(str): the password for remote server
+    :param parallel(bool): paralleler execute on remote server, default True
+    :returns: None
+    :examples:
+
+        .. code-block:: python
+
+            # create two mysql instances
+            mysql1 = MysqlManage(user='ubuntu', hosts=['controller1'])
+            mysql2 = MysqlManage(user='ubuntu', hosts=['controller2'])
+
+            # bootstrap the first cluster node
+            mysql1.start_wsrep_new_cluster()
+
+            # start the second cluster node
+            mysql2.start_mysql()
+
+            # change the mysql root password
+            mysql1.change_root_password('changeme')
+
+            # show the cluster status
+            mysql1.show_cluster_status('changeme')
+    """
 
     def _start_wsrep_new_cluster(self):
         if self._release() == 'xenial':
             sudo('systemctl stop mysql', warn_only=True, shell=False)
-            #sudo('service mysql bootstrap', shell=False) #this will invoke joiner failed
+            # sudo('service mysql bootstrap', shell=False) #this will invoke
+            # joiner failed
             xenial_warning = """Please bootstrap the new cluster node manually on Xenial with MariaDB 10.0.\nRun: 'sudo service mysql bootstrap' on remote server.\n"""
             sys.stdout.write(red(xenial_warning))
         else:
             sudo('service mysql start --wsrep-new-cluster')
 
-    def _start_mysql(self):     
+    def start_wsrep_new_cluster(self):
+        """
+        Initialize the primary component on one cluster node
+
+        :returns: None
+        """
+        return execute(self._start_wsrep_new_cluster)
+
+    def _start_mysql(self):
         if self._release() == 'xenial':
             sudo('systemctl restart mysql', shell=False)
         else:
             sudo('service mysql restart')
+
+    def start_mysql(self):
+        """
+        Start the database server to join the cluster
+
+        :returns: None
+        """
+        return execute(self._start_mysql)
 
     def _stop_mysql(self):
         if self._release() == 'xenial':
@@ -28,8 +76,35 @@ class MysqlManage(common.Common):
         else:
             sudo('service mysql stop')
 
+    def stop_mysql(self):
+        """
+        Stop the mysql service
+
+        :returns: None
+        """
+        return execute(self._stop_mysql)
+
     def _change_root_password(self, pwd):
         sudo('mysqladmin -uroot password %s' % pwd)
 
+    def change_root_password(self, *args, **kwargs):
+        """
+        Change the mysql root password
+
+        :param pwd: the new password of root user
+        :returns: None
+        """
+        return execute(self._change_root_password, *args, **kwargs)
+
     def _show_cluster_status(self, root_db_pass):
-        sudo("mysql -uroot -p{root_db_pass} -e \"SHOW STATUS LIKE 'wsrep_%';\"".format(root_db_pass=root_db_pass), shell=False)
+        sudo("mysql -uroot -p{root_db_pass} -e \"SHOW STATUS LIKE 'wsrep_%';\"".format(
+            root_db_pass=root_db_pass), shell=False)
+
+    def show_cluster_status(self, *args, **kwargs):
+        """
+        Display the cluster status
+
+        :param root_db_pass: the password of mysql root user
+        :returns: None
+        """
+        return execute(self._show_cluster_status, *args, **kwargs)
